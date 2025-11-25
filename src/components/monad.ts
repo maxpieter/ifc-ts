@@ -20,14 +20,27 @@ import {label, Labeled} from "./label";
 
 // (I'll add I/O at the end of this source file)
 
-// Labeled-I-O type - our monad.
-// all it does is narrow Lpc and L.
-// (no force-eval type-level-thunk; I want this opaque).
-//type LIO<Lpc extends Level, L extends Level, V> = [Lpc, L, V]
-//type LIOdg<Lpc extends Level, L extends Level, V> = true extends true ?  (x : Lpc) => [L, V]  :  (x : Lpc) => [L, V]
 
-/** Labeled-I-O, our Monad type. */
-export type LIO<Lpc extends Level, L extends Level, V> = [Contravariant<Lpc>, L, V];
+export interface LIO<Lpc extends Level, L extends Level, V> {
+    /** Phantom field for PC label (compile-time only) */
+    readonly _lpc: Lpc;
+    /** Phantom field for data label (compile-time only) */
+    readonly _label: L;
+    /** The actual computation */
+    readonly run: () => Promise<V>;
+}
+
+function mkLIO<Lpc extends Level, L extends Level, V>(
+    computation: () => Promise<V>
+): LIO<Lpc, L, V> {
+    return {
+        // @ts-ignore - phantom fields for type system only
+        _lpc: undefined,
+        // @ts-ignore - phantom fields for type system only
+        _label: undefined,
+        run: computation
+    };
+}
 
 // Our unlabel statement.
 // typically, given Labeled<L,V>, the return type is LIO<PC, L, V> for any PC.
@@ -35,9 +48,11 @@ export type LIO<Lpc extends Level, L extends Level, V> = [Contravariant<Lpc>, L,
 // subtyping to weaken this guarantee where needed.
 
 /** Unlabel a labeled statement. */
-export function unLabel<L extends Level, V>(lv: Labeled<L, V>): LIO<Top, L, V> {
-    const [l, v] = lv
-    return [toContravariant(topLevel), l, v]
+
+export function unLabel<L extends Level, V>(
+    lv: Labeled<L, V>
+): LIO<L, Bot, Labeled<L, V>> {
+    return mkLIO<L, Bot, Labeled<L, V>>(async () => lv);
 }
 
 // Type for our ret statement.
@@ -47,7 +62,7 @@ export function unLabel<L extends Level, V>(lv: Labeled<L, V>): LIO<Top, L, V> {
 
 /** Return a value. */
 export function ret<V>(v: V): LIO<Top, Bot, V> {
-    return [toContravariant(topLevel), botLevel, v]
+    return mkLIO<Top, Bot, V>(async () => v);
 }
 
 /** The bind statement */
@@ -59,13 +74,16 @@ export function bind<
     R extends Level,
     W
 >(
-    m: LIO<Lpc, L, V>,
-    f: (_: V) => LIO<Rpc, R, W>
+    m: LIO<Lpc, L, Labeled<L, V>>,
+    f: (_: Labeled<L, V>) => LIO<Rpc, R, W>
 ):
     LIO<GLB<Lpc, Rpc>, LUB<L, R>, W> // Zpc <: Lpc , Zpc <: Rpc , L <: Z , R <: Z
 {
-    const [lpc, l, v] = m
-    return f(v)
+    return mkLIO<GLB<Lpc, Rpc>, LUB<L, R>, W>(async () => {
+        const labeledValue = await m.run();
+        const result = f(labeledValue);
+        return await result.run();
+    });
 }
 // while TypeScript can check that A <: B,
 // TypeScript cannot "magically" find a B
@@ -96,14 +114,18 @@ export function toLabeled<
     PC extends Level,
     L extends Level,
     V
->(m: LIO<PC, L, V>
-): LIO<PC, Bot, Labeled<L, V>> {
-    const [pc, l, v] = m
-    return [pc, botLevel, label(l, v)]
+>(m: LIO<PC, L, Labeled<L, V>>
+): LIO<PC, Bot, Labeled<L, Labeled<L, V>>> {
+    return mkLIO<PC, Bot, Labeled<L, Labeled<L, V>>>(async () => {
+        const lv = await m.run();
+        const [l, v] = lv;
+        return label(l, lv);
+    });
 }
 
 /** Gets a value out of the monad. WARNING: this is unsafe! */
-export function unsafe_runLIO<Lpc extends Level, L extends Level, V>(m: LIO<Lpc, L, V>): V {
-    const [lpc, l, v] = m
-    return v
+export async function unsafe_runLIO<Lpc extends Level, L extends Level, V>(
+    m: LIO<Lpc, L, V>
+): Promise<V> {
+    return await m.run();
 }
