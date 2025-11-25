@@ -32,14 +32,15 @@ export function downPC<
     return [toContravariant(lpc_), l, v]
 }
 
-/** A quality of life function that gets the PC-level of the monad. */
-export function levelOfPC<Lpc extends Level, L extends Level, V>(m: LIO<Lpc, L, V>): LIO<Lpc, L, Lpc> {
-    const [lpc, l, v] = m;
-    return ret(fromContravariant(lpc));
-}
+// Can't work with phantom types as labels dont exist during runtime
+// /** A quality of life function that gets the PC-level of the monad. */
+// export function levelOfPC<Lpc extends Level, L extends Level, V>(m: LIO<Lpc, L, V>): LIO<Lpc, L, Lpc> {
+//     const [lpc, l, v] = m;
+//     return ret(fromContravariant(lpc));
+// }
 
-/** A quality of life function that gets the data-level of the monad. */
-export function levelOfData<Lpc extends Level, L extends Level, V>(m: LIO<Lpc, L, V>): LIO<Lpc, L, L> {
-    const [lpc, l, v] = m;
-    return ret(l);
-}
+// /** A quality of life function that gets the data-level of the monad. */
+// export function levelOfData<Lpc extends Level, L extends Level, V>(m: LIO<Lpc, L, V>): LIO<Lpc, L, L> {
+//     const [lpc, l, v] = m;
+//     return ret(l);
+// }

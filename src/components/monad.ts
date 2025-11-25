@@ -110,18 +110,20 @@ export function bind<
  * the pc does not go away; it might forbid
  * writing this boxed value in a "next step".
  */
-export function toLabeled<
-    PC extends Level,
-    L extends Level,
-    V
->(m: LIO<PC, L, Labeled<L, V>>
-): LIO<PC, Bot, Labeled<L, Labeled<L, V>>> {
-    return mkLIO<PC, Bot, Labeled<L, Labeled<L, V>>>(async () => {
-        const lv = await m.run();
-        const [l, v] = lv;
-        return label(l, lv);
-    });
-}
+
+// Seems like this function is no longer necessary in async-phantom approach since the values are always labeled inside the monad
+// export function toLabeled<
+//     PC extends Level,
+//     L extends Level,
+//     V
+// >(m: LIO<PC, L, Labeled<L, V>>
+// ): LIO<PC, Bot, Labeled<L, Labeled<L, V>>> {
+//     return mkLIO<PC, Bot, Labeled<L, Labeled<L, V>>>(async () => {
+//         const lv = await m.run();
+//         const [l, v] = lv;
+//         return label(l, lv);
+//     });
+// }
 
 /** Gets a value out of the monad. WARNING: this is unsafe! */
 export async function unsafe_runLIO<Lpc extends Level, L extends Level, V>(
