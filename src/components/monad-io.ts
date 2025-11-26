@@ -1,6 +1,6 @@
 import {Bot, Level, Top} from "./lattice";
 import {Contravariant, toContravariant} from "../misc/subtyping";
-import {LIO, ret} from "./monad";
+import {LIO, ret, mkLIO} from "./monad";
 import {label, Labeled} from "./label";
 
 /**
@@ -31,34 +31,21 @@ export function snk<L extends Level, O>(l: L, w: Writer<O>): Snk<L, O> {
 }
 
 /** Reads data from L-source. data is L-labeled. data can be up-classified by subtyping. */
-export function input<L extends Level, I>([l, r]: Src<L, I>): LIO<Top, Bot, Labeled<L, I>> {
-    return {
-        // @ts-ignore - phantom fields
-        _lpc: undefined,
-        // @ts-ignore - phantom fields
-        _label: undefined,
-        run: async () => {
-            const value = await r();
-            return label(l, value);
-        }
-    };
-}
+  export function input<L extends Level, I>([l, r]: Src<L, I>): LIO<Top, Bot, Labeled<L, I>> {
+      return mkLIO<Top, Bot, Labeled<L, I>>(async () => {
+          const value = await r();
+          return label(l, value);
+      });
+  }
 
 /** Writes data to L-sink. data is L-labeled. data can be down-classified by subtyping. */
-export function output<Lsink extends Level, Ldata extends Lsink, O>(
-    [_, w]: Snk<Lsink, O>
-): (data: Labeled<Ldata, O>) => LIO<Ldata, Bot, null> {
-    return (data: Labeled<Ldata, O>) => {
-        return {
-            // @ts-ignore - phantom fields
-            _lpc: undefined,
-            // @ts-ignore - phantom fields
-            _label: undefined,
-            run: async () => {
-                const [l, value] = data;
-                await w(value);
-                return null;
-            }
-        } as unknown as LIO<Ldata, Bot, null>;
-    };
-}
+  export function output<Lsink extends Level, Ldata extends Lsink, O>(
+      [_, w]: Snk<Lsink, O>
+  ): (data: Labeled<Ldata, O>) => LIO<Ldata, Bot, null> {
+      return (data: Labeled<Ldata, O>) =>
+          mkLIO<Ldata, Bot, null>(async () => {
+              const [l, value] = data;
+              await w(value);
+              return null;
+          });
+  }

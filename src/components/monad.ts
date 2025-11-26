@@ -30,7 +30,7 @@ export interface LIO<Lpc extends Level, L extends Level, V> {
     readonly run: () => Promise<V>;
 }
 
-function mkLIO<Lpc extends Level, L extends Level, V>(
+export function mkLIO<Lpc extends Level, L extends Level, V>(
     computation: () => Promise<V>
 ): LIO<Lpc, L, V> {
     return {
@@ -48,6 +48,9 @@ function mkLIO<Lpc extends Level, L extends Level, V>(
 // subtyping to weaken this guarantee where needed.
 
 /** Unlabel a labeled statement. */
+// NOTE: this is more like raisePC or enterContext
+// it raises the program counter label to match the data label, which is 
+// necessary before you can use the data in conditionals or other control flow.
 
 export function unLabel<L extends Level, V>(
     lv: Labeled<L, V>

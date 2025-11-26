@@ -9,7 +9,7 @@ export type {Src, Snk, Reader, Writer} from "./components/monad-io";
 // All the top level functions that our API exposes
 export {lub, botLevel, topLevel} from "./components/lattice";
 export {label, labelOf, upLabel, unsafe_valueOf} from "./components/label";
-export {unLabel, ret, bind, toLabeled, unsafe_runLIO} from "./components/monad";
-export {upData, downPC, levelOfPC, levelOfData} from './components/monad-utility'
+export {unLabel, ret, bind, /*toLabeled,*/ unsafe_runLIO} from "./components/monad";
+export {upData, downPC, /*levelOfPC, levelOfData*/} from './components/monad-utility'
 
 export {src, snk, input, output} from './components/monad-io'
