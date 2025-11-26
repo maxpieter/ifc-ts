@@ -48,6 +48,7 @@ export type GLB<L extends Level, R extends Level> = true extends true ? L & R : 
 export function glb<L extends Level, R extends Level>(l: L, r: R): GLB<L, R> {
     return botLevel
 }
+// do we need the value level representation of glb? Maybe because of structural typing.
 
 // idea: if l === r then return l else return botlevel.
 // if condition is true, then (typeof l) <: R and (typeof r) <: R.

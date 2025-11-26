@@ -58,29 +58,3 @@ const violation2 = () => {
 };
 
 violation2();
-
-// const res = violation2();
-// console.log(res.toString());
-// /**
-//  * VIOLATION 3: PC tracking insufficient
-//  * Inside unLabel context, can still leak
-//  */
-// const violation3 = () => {
-
-//     return bind(
-//         aliceLIO,
-//         (lv: Labeled<Alice, string>) => bind(
-//             unLabel(lv),  // PC becomes Alice
-//             (stillLabeled: Labeled<Alice, string>) => {
-//                 const [_, value] = stillLabeled;
-//                 // Even with PC=Alice, can relabel
-//                 return output(publicSink)(label(publicLevel, value));
-//             }
-//         )
-//     );
-// };
-
-// console.log("Violations compile successfully with naive async implementation");
-// console.log("\nViolation 1: Direct relabeling");
-// console.log("\nViolation 2: Through unlabeled ret()");
-// console.log("\nViolation 3: Inside unLabel context");
