@@ -21,6 +21,17 @@ import {label, Labeled} from "./label";
 // (I'll add I/O at the end of this source file)
 
 
+/**
+ * Labeled-I/O monad with phantom type labels.
+ *
+ * Unlike the tuple-based representation, this uses phantom types for labels
+ * and a Promise-based computation, enabling compile-time information flow
+ * control with zero runtime label overhead.
+ *
+ * @template Lpc - Program counter label (phantom, compile-time only)
+ * @template L - Data label (phantom, compile-time only)
+ * @template V - The value type returned by the computation
+ */
 export interface LIO<Lpc extends Level, L extends Level, V> {
     /** Phantom field for PC label (compile-time only) */
     readonly _lpc: Lpc;
@@ -30,6 +41,18 @@ export interface LIO<Lpc extends Level, L extends Level, V> {
     readonly run: () => Promise<V>;
 }
 
+/**
+ * Constructs an LIO computation with phantom type labels.
+ *
+ * This is the primary constructor for LIO values. The phantom fields (_lpc, _label)
+ * exist only at the type level and are set to undefined at runtime.
+ *
+ * @template Lpc - Program counter label
+ * @template L - Data label
+ * @template V - Value type
+ * @param computation - Async function that produces the value
+ * @returns LIO monad wrapping the computation with type-level labels
+ */
 export function mkLIO<Lpc extends Level, L extends Level, V>(
     computation: () => Promise<V>
 ): LIO<Lpc, L, V> {
@@ -42,33 +65,69 @@ export function mkLIO<Lpc extends Level, L extends Level, V>(
     };
 }
 
-// Our unlabel statement.
-// typically, given Labeled<L,V>, the return type is LIO<PC, L, V> for any PC.
-// instead, I make the type be the strongest guarantee, and will use
-// subtyping to weaken this guarantee where needed.
-
-/** Unlabel a labeled statement. */
-// NOTE: this is more like raisePC or enterContext
-// it raises the program counter label to match the data label, which is 
-// necessary before you can use the data in conditionals or other control flow.
-
+/**
+ * Raises the program counter label to match the data label.
+ *
+ * This operation is necessary before using labeled data in control flow
+ * (conditionals, loops) to prevent implicit flows. The PC label is raised
+ * to L, ensuring that any outputs within the computation are at least as
+ * sensitive as the data being examined.
+ *
+ * Note: Unlike the old implementation, values remain Labeled throughout.
+ * This prevents accidental label erasure and maintains noninterference.
+ *
+ * @template L - The label of the data
+ * @template V - The value type
+ * @param lv - Labeled value to unlabel
+ * @returns LIO computation with PC raised to L, value remains Labeled<L, V>
+ */
 export function unLabel<L extends Level, V>(
     lv: Labeled<L, V>
 ): LIO<L, Bot, Labeled<L, V>> {
     return mkLIO<L, Bot, Labeled<L, V>>(async () => lv);
 }
 
-// Type for our ret statement.
-// typically, its type is LIO<Lpc,L,V> for any Lpc and L.
-// instead, I make the type be the strongest guarantee, and will use
-// subtyping to weaken this guarantee where needed.
-
-/** Return a value. */
+/**
+ * Lifts a pure value into the LIO monad.
+ *
+ * Returns an LIO computation with the weakest possible constraints:
+ * PC = Top (no implicit flow restrictions) and data label = Bot (public).
+ * Use subtyping to strengthen these guarantees where needed.
+ *
+ * Warning: In the phantom type approach, ret() should be used carefully
+ * to avoid accidentally creating unlabeled values. Prefer keeping values
+ * Labeled<L, V> throughout computations.
+ *
+ * @template V - Value type
+ * @param v - The value to lift
+ * @returns LIO computation returning the value
+ */
 export function ret<V>(v: V): LIO<Top, Bot, V> {
     return mkLIO<Top, Bot, V>(async () => v);
 }
 
-/** The bind statement */
+/**
+ * Monadic bind operation for sequencing LIO computations.
+ *
+ * Key changes from tuple-based implementation:
+ * - Continuation f receives Labeled<L, V>, not bare V (prevents label erasure)
+ * - Type constraint L extends Rpc enforces that data label flows to PC (prevents implicit flows)
+ * - Result labels computed via GLB (PC) and LUB (data) at compile-time
+ *
+ * Security guarantee: If m has PC label Lpc and data at level L, and the continuation
+ * needs PC label Rpc, then L must flow to Rpc (L extends Rpc). This prevents using
+ * high-security data in low-security contexts.
+ *
+ * @template Lpc - PC label of first computation
+ * @template L - Data label of first computation (must flow to Rpc)
+ * @template V - Value type from first computation
+ * @template Rpc - PC label required by continuation
+ * @template R - Data label of second computation
+ * @template W - Result value type
+ * @param m - First LIO computation
+ * @param f - Continuation receiving labeled value
+ * @returns LIO computation with PC = GLB(Lpc, Rpc) and data label = LUB(L, R)
+ */
 export function bind<
     Lpc extends Level,
     L extends Rpc,                // L <: Rpc
@@ -128,7 +187,21 @@ export function bind<
 //     });
 // }
 
-/** Gets a value out of the monad. WARNING: this is unsafe! */
+/**
+ * Executes an LIO computation and extracts the result value.
+ *
+ * WARNING: This is unsafe! It bypasses all information flow control checks
+ * and should only be used at the top level of your program after verifying
+ * that the security guarantees are satisfied.
+ *
+ * Changed from sync to async to match the Promise-based computation model.
+ *
+ * @template Lpc - PC label (ignored at runtime)
+ * @template L - Data label (ignored at runtime)
+ * @template V - Value type
+ * @param m - LIO computation to run
+ * @returns Promise containing the result value
+ */
 export async function unsafe_runLIO<Lpc extends Level, L extends Level, V>(
     m: LIO<Lpc, L, V>
 ): Promise<V> {
