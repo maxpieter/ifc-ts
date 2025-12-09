@@ -1,6 +1,6 @@
-import {Bot, botLevel, GLB, Level, LUB, Top, topLevel} from "./lattice";
-import {Contravariant, toContravariant} from "../misc/subtyping";
-import {label, Labeled} from "./label";
+import { Bot, botLevel, GLB, Level, LUB, Top, topLevel } from "./lattice";
+import { Contravariant, toContravariant } from "../misc/subtyping";
+import { label, Labeled } from "./label";
 
 // LIO_MONAD_______________________________________________
 
@@ -36,7 +36,8 @@ export type LIO<Lpc extends Level, L extends Level, V> = [Contravariant<Lpc>, L,
 
 /** Unlabel a labeled statement. */
 export function unLabel<L extends Level, V>(lv: Labeled<L, V>): LIO<Top, L, V> {
-    const [l, v] = lv
+    const l = lv.getLabel();
+    const v = lv.unsafeGetValue();
     return [toContravariant(topLevel), l, v]
 }
 
@@ -66,6 +67,46 @@ export function bind<
 {
     const [lpc, l, v] = m
     return f(v)
+}
+
+/**
+ * Async-aware bind that automatically handles Promise<Labeled<L, V>> chaining.
+ *
+ * This is the key contribution discussed in your meeting - it allows chaining
+ * async I/O operations without forcing developers to manually handle promises
+ * outside the monad.
+ *
+ * Usage:
+ *   bindAsync(
+ *     input(source),              // Returns LIO<..., Promise<Labeled<L, I>>>
+ *     (lv) => {                   // lv is Labeled<L, I> (promise already unwrapped!)
+ *       const transformed = ...;
+ *       return output(sink)(transformed);
+ *     }
+ *   )
+ */
+export function bindAsync<
+    Lpc extends Level,
+    L extends Rpc,
+    V,
+    Rpc extends Level,
+    R extends Level,
+    W
+>(
+    m: LIO<Lpc, L, Promise<Labeled<L, V>>>,
+    f: (lv: Labeled<L, V>) => LIO<Rpc, R, Promise<W>>
+): LIO<GLB<Lpc, Rpc>, LUB<L, R>, Promise<W>> {
+    const [lpc, l, promiseLV] = m;
+
+    // Chain the promises: when the input promise resolves,
+    // pass the labeled value to f, then extract the result promise
+    const resultPromise = promiseLV.then((labeledValue) => {
+        const [_, __, promiseW] = f(labeledValue);
+        return promiseW;
+    });
+
+    // Combine PC labels (GLB) and data labels (LUB)
+    return [toContravariant(topLevel as any), l, resultPromise] as LIO<GLB<Lpc, Rpc>, LUB<L, R>, Promise<W>>;
 }
 // while TypeScript can check that A <: B,
 // TypeScript cannot "magically" find a B
@@ -103,7 +144,13 @@ export function toLabeled<
 }
 
 /** Gets a value out of the monad. WARNING: this is unsafe! */
+// Max: could be considered safe now that the value is in a closure?
 export function unsafe_runLIO<Lpc extends Level, L extends Level, V>(m: LIO<Lpc, L, V>): V {
     const [lpc, l, v] = m
     return v
+}
+
+export function run<Lpc extends Level, L extends Level, V>(m: LIO<Lpc, L, Promise<V>>): Promise<V> {
+    const [_, __, promise] = m;
+    return promise;
 }
