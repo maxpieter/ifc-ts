@@ -46,20 +46,36 @@ export function unLabel<L extends Level, V>(lv: Labeled<L, V>): LIO<Top, L, V> {
 // instead, I make the type be the strongest guarantee, and will use
 // subtyping to weaken this guarantee where needed.
 
-/** Return a pure value. */
+/** Return a value. */
 export function ret<V>(v: V): LIO<Top, Bot, V> {
-    return [toContravariant(topLevel), botLevel, v];
+    return [toContravariant(topLevel), botLevel, v]
+}
+
+/** The bind statement */
+export function bind<
+    Lpc extends Level,
+    L extends Rpc,                // L <: Rpc
+    V,
+    Rpc extends Level,
+    R extends Level,
+    W
+>(
+    m: LIO<Lpc, L, V>,
+    f: (_: V) => LIO<Rpc, R, W>
+):
+    LIO<GLB<Lpc, Rpc>, LUB<L, R>, W> // Zpc <: Lpc , Zpc <: Rpc , L <: Z , R <: Z
+{
+    const [lpc, l, v] = m
+    return f(v)
 }
 
 /**
  * Async-aware bind that automatically handles Promise<Labeled<L, V>> chaining.
  *
- * Unwraps the labeled value from the promise and passes the raw value to the function.
- * The function can return either a Promise<W> or a plain W. Both are handled automatically.
- * This allows chaining async I/O operations without forcing developers to manually
- * handle promises and labeled values.
+ * Allows chaining async I/O operations without forcing developers to manually 
+ * handle promises outside the monad.
  */
-export function bind<
+export function bindAsync<
     Lpc extends Level,
     L extends Rpc,
     V,
@@ -68,17 +84,15 @@ export function bind<
     W
 >(
     m: LIO<Lpc, L, Promise<Labeled<L, V>>>,
-    f: (v: V) => LIO<Rpc, R, W> | LIO<Rpc, R, Promise<W>>
+    f: (lv: Labeled<L, V>) => LIO<Rpc, R, Promise<W>>
 ): LIO<GLB<Lpc, Rpc>, LUB<L, R>, Promise<W>> {
     const [lpc, l, promiseLV] = m;
 
     // Chain the promises: when the input promise resolves,
-    // unwrap the labeled value and pass the raw value to f
+    // pass the labeled value to f, then extract the result promise
     const resultPromise = promiseLV.then((labeledValue) => {
-        const rawValue = labeledValue.unsafeGetValue();
-        const [_, __, resultW] = f(rawValue);
-        // Wrap in Promise.resolve to handle both sync and async results
-        return Promise.resolve(resultW);
+        const [_, __, promiseW] = f(labeledValue);
+        return promiseW;
     });
 
     // Combine PC labels (GLB) and data labels (LUB)
