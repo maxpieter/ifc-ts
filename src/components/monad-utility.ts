@@ -1,5 +1,5 @@
 import {Level} from "./lattice";
-import {LIO, ret} from "./monad";
+import {LIO, makeLIO, ret} from "./monad";
 import {fromContravariant, toContravariant} from "../misc/subtyping";
 
 /** A utility function to manually up-classify data.
@@ -14,7 +14,7 @@ export function upData<
 ):
     LIO<Lpc, L_, V> {
     const [lpc, l, v] = m
-    return [lpc, l_, v]
+    return makeLIO(lpc, l_, v)
 }
 
 /** A utility function to manually down-classify pc.
@@ -29,7 +29,7 @@ export function downPC<
 ):
     LIO<Lpc_, L, V> {
     const [lpc, l, v] = m
-    return [toContravariant(lpc_), l, v]
+    return makeLIO(toContravariant(lpc_), l, v)
 }
 
 /** A quality of life function that gets the PC-level of the monad. */

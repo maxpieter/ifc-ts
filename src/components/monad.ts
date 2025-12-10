@@ -26,8 +26,24 @@ import { label, Labeled } from "./label";
 //type LIO<Lpc extends Level, L extends Level, V> = [Lpc, L, V]
 //type LIOdg<Lpc extends Level, L extends Level, V> = true extends true ?  (x : Lpc) => [L, V]  :  (x : Lpc) => [L, V]
 
+// internal brand so callers cannot construct LIO by tuple literal (type-only)
+declare const lioBrand: unique symbol;
+
+type LIOBranded<Lpc extends Level, L extends Level, V> =
+    readonly [Contravariant<Lpc>, L, V] & { readonly [lioBrand]: true };
+
 /** Labeled-I-O, our Monad type. */
-export type LIO<Lpc extends Level, L extends Level, V> = [Contravariant<Lpc>, L, V];
+export type LIO<Lpc extends Level, L extends Level, V> = LIOBranded<Lpc, L, V>;
+
+/** Internal constructor to apply the brand. */
+export function makeLIO<Lpc extends Level, L extends Level, V>(
+    lpc: Contravariant<Lpc>,
+    l: L,
+    v: V
+): LIO<Lpc, L, V> {
+    // Double assertion to satisfy the brand without requiring runtime data.
+    return [lpc, l, v] as unknown as LIOBranded<Lpc, L, V>;
+}
 
 // Our unlabel statement.
 // typically, given Labeled<L,V>, the return type is LIO<PC, L, V> for any PC.
@@ -38,7 +54,7 @@ export type LIO<Lpc extends Level, L extends Level, V> = [Contravariant<Lpc>, L,
 export function unLabel<L extends Level, V>(lv: Labeled<L, V>): LIO<Top, L, V> {
     const l = lv.getLabel();
     const v = lv.unsafeGetValue();
-    return [toContravariant(topLevel), l, v]
+    return makeLIO(toContravariant(topLevel), l, v)
 }
 
 // Type for our ret statement.
@@ -48,7 +64,7 @@ export function unLabel<L extends Level, V>(lv: Labeled<L, V>): LIO<Top, L, V> {
 
 /** Return a value. */
 export function ret<V>(v: V): LIO<Top, Bot, V> {
-    return [toContravariant(topLevel), botLevel, v]
+    return makeLIO(toContravariant(topLevel), botLevel, v)
 }
 
 /** The bind statement */
@@ -106,7 +122,7 @@ export function bindAsync<
     });
 
     // Combine PC labels (GLB) and data labels (LUB)
-    return [toContravariant(topLevel as any), l, resultPromise] as LIO<GLB<Lpc, Rpc>, LUB<L, R>, Promise<W>>;
+    return makeLIO(toContravariant(topLevel as any), l, resultPromise) as LIO<GLB<Lpc, Rpc>, LUB<L, R>, Promise<W>>;
 }
 // while TypeScript can check that A <: B,
 // TypeScript cannot "magically" find a B
@@ -140,7 +156,7 @@ export function toLabeled<
 >(m: LIO<PC, L, V>
 ): LIO<PC, Bot, Labeled<L, V>> {
     const [pc, l, v] = m
-    return [pc, botLevel, label(l, v)]
+    return makeLIO(pc, botLevel, label(l, v))
 }
 
 /** Gets a value out of the monad. WARNING: this is unsafe! */
