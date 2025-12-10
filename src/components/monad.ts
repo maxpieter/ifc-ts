@@ -72,18 +72,8 @@ export function bind<
 /**
  * Async-aware bind that automatically handles Promise<Labeled<L, V>> chaining.
  *
- * This is the key contribution discussed in your meeting - it allows chaining
- * async I/O operations without forcing developers to manually handle promises
- * outside the monad.
- *
- * Usage:
- *   bindAsync(
- *     input(source),              // Returns LIO<..., Promise<Labeled<L, I>>>
- *     (lv) => {                   // lv is Labeled<L, I> (promise already unwrapped!)
- *       const transformed = ...;
- *       return output(sink)(transformed);
- *     }
- *   )
+ * Allows chaining async I/O operations without forcing developers to manually 
+ * handle promises outside the monad.
  */
 export function bindAsync<
     Lpc extends Level,
