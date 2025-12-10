@@ -10,7 +10,7 @@ import {Level} from "./lattice";
  *
  * Values can only be accessed through the explicit API methods.
  */
-export interface Labeled<L extends Level, V> {
+export type Labeled<L extends Level, V> = {
     /** Get the label (safe operation) */
     getLabel(): L;
 
