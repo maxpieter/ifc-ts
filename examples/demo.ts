@@ -90,9 +90,9 @@ async function part2_encapsulation() {
     // Attempt every possible extraction method
     console.log("\n2. Attempting to extract value without using API:");
 
-    // @ts-expect-error error caught!
     const attempt1 = secret.__value;
     console.log(`   secret.__value = ${attempt1}                ← undefined ✓`);
+    const {lbl, value} = secret
 
     // @ts-expect-error
     const attempt2 = secret.value;
@@ -137,6 +137,10 @@ async function part3_monad_basics() {
     console.log("Creates the simplest possible computation (no restrictions)");
 
     const simpleComp = ret("plain value");
+    const [pc, l, v] = simpleComp
+    const [labeled, value] = v
+
+    console.log(pc, l, v)
     const result = unsafe_runLIO(simpleComp);
     console.log(`\n  ret("plain value")  →  "${result}"`);
     console.log("  ✓ Value is lifted into the monad");
@@ -155,6 +159,15 @@ async function part3_monad_basics() {
             return ret(doubled);
         }
     );
+/*     const comp3 = bindAsync(
+        comp1,
+        (x) => {
+            console.log(`\n  Inside bind: received ${x}`);
+            const doubled = x * 2;
+            console.log(`  Computed: ${x} * 2 = ${doubled}`);
+            return ret(doubled);
+        }
+    ); */
 
     const finalResult = unsafe_runLIO(comp2);
     console.log(`  Final result: ${finalResult}`);
