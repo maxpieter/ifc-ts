@@ -134,13 +134,7 @@ export function toLabeled<
 }
 
 /** Gets a value out of the monad. WARNING: this is unsafe! */
-// Max: could be considered safe now that the value is in a closure?
 export function unsafe_runLIO<Lpc extends Level, L extends Level, V>(m: LIO<Lpc, L, V>): V {
     const [lpc, l, v] = m
     return v
-}
-
-export function run<Lpc extends Level, L extends Level, V>(m: LIO<Lpc, L, Promise<V>>): Promise<V> {
-    const [_, __, promise] = m;
-    return promise;
 }
